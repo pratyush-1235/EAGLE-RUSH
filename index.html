@@ -1,0 +1,1478 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flappy Space - Dual Mode Game</title>
+    <meta name="theme-color" content="#0f172a">
+    <meta name="description" content="Play Flappy Bird (Day Mode) or Astro Thrust (Night Mode) in one game!">
+    <link rel="manifest" href="manifest.json">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            touch-action: manipulation;
+            user-select: none;
+            font-family: 'Press Start 2P', cursive;
+        }
+        
+        #game-container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden;
+        }
+        
+        #game-canvas {
+            display: block;
+        }
+        
+        .screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            background-color: rgba(0, 0, 0, 0.8);
+            color: white;
+            z-index: 100;
+            text-align: center;
+        }
+        
+        .btn {
+            padding: 15px 30px;
+            margin: 10px;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: none;
+            font-family: inherit;
+        }
+        
+        .btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+        }
+        
+        .btn:active {
+            transform: translateY(0);
+        }
+        
+        .day-btn {
+            background-color: #38bdf8;
+            color: white;
+        }
+        
+        .night-btn {
+            background-color: #7e22ce;
+            color: white;
+        }
+        
+        .easy-btn {
+            background-color: #10b981;
+            color: white;
+        }
+        
+        .medium-btn {
+            background-color: #f59e0b;
+            color: black;
+        }
+        
+        .hard-btn {
+            background-color: #ef4444;
+            color: white;
+        }
+        
+        .restart-btn {
+            background-color: #3b82f6;
+            color: white;
+        }
+        
+        .mode-btn {
+            background-color: #64748b;
+            color: white;
+        }
+        
+        .difficulty-btn {
+            background-color: #475569;
+            color: white;
+        }
+        
+        #score-display {
+            position: absolute;
+            top: 20px;
+            width: 100%;
+            text-align: center;
+            font-size: 24px;
+            color: white;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+            z-index: 50;
+        }
+        
+        #timer-display {
+            position: absolute;
+            top: 60px;
+            width: 100%;
+            text-align: center;
+            font-size: 18px;
+            color: white;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+            z-index: 50;
+        }
+        
+        .modal {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: rgba(0, 0, 0, 0.9);
+            padding: 20px;
+            border-radius: 10px;
+            z-index: 200;
+            max-width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+            display: none;
+        }
+        
+        .achievement {
+            display: flex;
+            align-items: center;
+            margin: 10px 0;
+            padding: 10px;
+            background-color: rgba(255, 255, 255, 0.1);
+            border-radius: 5px;
+        }
+        
+        .achievement.unlocked {
+            background-color: rgba(255, 215, 0, 0.2);
+        }
+        
+        .achievement-icon {
+            width: 30px;
+            height: 30px;
+            margin-right: 10px;
+            background-color: gold;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+        }
+        
+        .leaderboard-entry {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        @media (max-width: 768px) {
+            .btn {
+                padding: 12px 24px;
+                font-size: 14px;
+            }
+            
+            h1 {
+                font-size: 1.8rem;
+            }
+            
+            h2 {
+                font-size: 1.4rem;
+            }
+        }
+        
+        /* Night mode specific */
+        .night-mode-text {
+            font-family: 'Orbitron', sans-serif;
+            text-shadow: 0 0 10px #3b82f6;
+        }
+        
+        /* Engine glow effect */
+        .engine-glow {
+            position: absolute;
+            width: 30px;
+            height: 60px;
+            background: radial-gradient(circle, rgba(255,165,0,0.8) 0%, rgba(255,69,0,0.5) 50%, transparent 70%);
+            border-radius: 50%;
+            filter: blur(5px);
+            z-index: 10;
+        }
+    </style>
+</head>
+<body>
+    <div id="game-container">
+        <canvas id="game-canvas"></canvas>
+        <div id="score-display">0</div>
+        <div id="timer-display">0s</div>
+        
+        <!-- Mode Selection Screen -->
+        <div id="mode-screen" class="screen">
+            <h1 class="mb-8">FLAPPY SPACE</h1>
+            <h2 class="mb-12">Choose Your Mode</h2>
+            <button id="day-mode-btn" class="btn day-btn">🌞 Day Mode (Flappy Bird)</button>
+            <button id="night-mode-btn" class="btn night-btn">🌌 Night Mode (Astro Thrust)</button>
+            <button id="leaderboard-btn" class="btn mt-12">🏆 Leaderboard</button>
+        </div>
+        
+        <!-- Difficulty Selection Screen -->
+        <div id="difficulty-screen" class="screen" style="display: none;">
+            <h1 id="difficulty-title" class="mb-8">Select Difficulty</h1>
+            <button class="btn easy-btn" data-difficulty="easy">Easy</button>
+            <button class="btn medium-btn" data-difficulty="medium">Medium</button>
+            <button class="btn hard-btn" data-difficulty="hard">Hard</button>
+            <button id="back-to-mode-btn" class="btn mt-12">Back</button>
+        </div>
+        
+        <!-- Game Over Screen -->
+        <div id="game-over-screen" class="screen" style="display: none;">
+            <h1 id="game-over-title" class="mb-4">GAME OVER</h1>
+            <h2 id="final-score" class="mb-4">Score: 0</h2>
+            <h3 id="time-survived" class="mb-8">Time: 0s</h3>
+            <div id="achievements-earned" class="mb-8"></div>
+            <button id="restart-btn" class="btn restart-btn">Play Again</button>
+            <button id="change-difficulty-btn" class="btn difficulty-btn">Change Difficulty</button>
+            <button id="change-mode-btn" class="btn mode-btn">Change Mode</button>
+        </div>
+        
+        <!-- Name Input Modal -->
+        <div id="name-input-modal" class="modal">
+            <h2 class="mb-4">New High Score!</h2>
+            <p class="mb-4">Enter your name:</p>
+            <input type="text" id="player-name" class="w-full p-2 mb-4 bg-gray-800 text-white rounded" maxlength="20">
+            <button id="submit-score-btn" class="btn">Submit</button>
+        </div>
+        
+        <!-- Leaderboard Modal -->
+        <div id="leaderboard-modal" class="modal">
+            <h2 class="mb-4">🏆 Leaderboard 🏆</h2>
+            <div id="leaderboard-tabs" class="flex mb-4">
+                <button class="leaderboard-tab btn day-btn mr-2" data-mode="day">Day Mode</button>
+                <button class="leaderboard-tab btn night-btn" data-mode="night">Night Mode</button>
+            </div>
+            <div id="leaderboard-content">
+                <div id="day-leaderboard">
+                    <h3 class="mb-2">Flappy Bird (Day Mode)</h3>
+                    <div id="day-leaderboard-entries"></div>
+                </div>
+                <div id="night-leaderboard" style="display: none;">
+                    <h3 class="mb-2">Astro Thrust (Night Mode)</h3>
+                    <div id="night-leaderboard-entries"></div>
+                </div>
+            </div>
+            <button id="close-leaderboard-btn" class="btn mt-4">Close</button>
+        </div>
+    </div>
+
+    <script>
+        // Game Constants
+        const GAME_MODES = {
+            DAY: 'day',
+            NIGHT: 'night'
+        };
+        
+        const DIFFICULTIES = {
+            EASY: 'easy',
+            MEDIUM: 'medium',
+            HARD: 'hard'
+        };
+        
+        const ACHIEVEMENTS = [
+            { id: 'score_10', name: 'Novice', description: 'Score 10 points', condition: (game) => game.score >= 10 },
+            { id: 'score_50', name: 'Expert', description: 'Score 50 points', condition: (game) => game.score >= 50 },
+            { id: 'survive_60', name: 'Survivor', description: 'Survive for 60 seconds', condition: (game) => game.timeSurvived >= 60 }
+        ];
+        
+        // Game State
+        let currentMode = GAME_MODES.DAY;
+        let currentDifficulty = DIFFICULTIES.MEDIUM;
+        let gameRunning = false;
+        let score = 0;
+        let highScore = 0;
+        let timeSurvived = 0;
+        let gameStartTime = 0;
+        let timerInterval = null;
+        let leaderboard = {
+            day: [],
+            night: []
+        };
+        let achievements = {};
+        
+        // DOM Elements
+        const canvas = document.getElementById('game-canvas');
+        const ctx = canvas.getContext('2d');
+        const scoreDisplay = document.getElementById('score-display');
+        const timerDisplay = document.getElementById('timer-display');
+        const modeScreen = document.getElementById('mode-screen');
+        const difficultyScreen = document.getElementById('difficulty-screen');
+        const gameOverScreen = document.getElementById('game-over-screen');
+        const finalScoreDisplay = document.getElementById('final-score');
+        const timeSurvivedDisplay = document.getElementById('time-survived');
+        const achievementsEarned = document.getElementById('achievements-earned');
+        const difficultyTitle = document.getElementById('difficulty-title');
+        const gameOverTitle = document.getElementById('game-over-title');
+        const dayModeBtn = document.getElementById('day-mode-btn');
+        const nightModeBtn = document.getElementById('night-mode-btn');
+        const backToModeBtn = document.getElementById('back-to-mode-btn');
+        const restartBtn = document.getElementById('restart-btn');
+        const changeDifficultyBtn = document.getElementById('change-difficulty-btn');
+        const changeModeBtn = document.getElementById('change-mode-btn');
+        const nameInputModal = document.getElementById('name-input-modal');
+        const playerNameInput = document.getElementById('player-name');
+        const submitScoreBtn = document.getElementById('submit-score-btn');
+        const leaderboardModal = document.getElementById('leaderboard-modal');
+        const leaderboardBtn = document.getElementById('leaderboard-btn');
+        const closeLeaderboardBtn = document.getElementById('close-leaderboard-btn');
+        const dayLeaderboard = document.getElementById('day-leaderboard');
+        const nightLeaderboard = document.getElementById('night-leaderboard');
+        const dayLeaderboardEntries = document.getElementById('day-leaderboard-entries');
+        const nightLeaderboardEntries = document.getElementById('night-leaderboard-entries');
+        const leaderboardTabs = document.querySelectorAll('.leaderboard-tab');
+        
+        // Set canvas size
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        
+        resizeCanvas();
+        window.addEventListener('resize', resizeCanvas);
+        
+        // Initialize game settings
+        function initGameSettings() {
+            // Load leaderboard from localStorage
+            const savedLeaderboard = localStorage.getItem('flappySpaceLeaderboard');
+            if (savedLeaderboard) {
+                leaderboard = JSON.parse(savedLeaderboard);
+            }
+            
+            // Load achievements from localStorage
+            const savedAchievements = localStorage.getItem('flappySpaceAchievements');
+            if (savedAchievements) {
+                achievements = JSON.parse(savedAchievements);
+            } else {
+                // Initialize achievements if not found
+                ACHIEVEMENTS.forEach(ach => {
+                    achievements[ach.id] = false;
+                });
+                localStorage.setItem('flappySpaceAchievements', JSON.stringify(achievements));
+            }
+        }
+        
+        initGameSettings();
+        
+        // Game Classes
+        class DayGame {
+            constructor() {
+                this.bird = {
+                    x: 100,
+                    y: canvas.height / 2,
+                    radius: 15,
+                    velocity: 0,
+                    gravity: 0.5,
+                    jumpForce: -10,
+                    color: '#FF5252',
+                    wingColor: '#333333',
+                    wingAngle: 0,
+                    wingSpeed: 0.2
+                };
+                
+                this.pipes = [];
+                this.clouds = [];
+                this.trees = [];
+                this.groundHeight = 60;
+                this.pipeWidth = 80;
+                this.pipeGap = 200;
+                this.pipeFrequency = 1500;
+                this.lastPipeTime = 0;
+                this.gameSpeed = 3;
+                
+                // Create initial clouds and trees
+                this.createClouds();
+                this.createTrees();
+            }
+            
+            createClouds() {
+                for (let i = 0; i < 5; i++) {
+                    this.clouds.push({
+                        x: Math.random() * canvas.width,
+                        y: Math.random() * (canvas.height / 3),
+                        width: 100 + Math.random() * 100,
+                        height: 60 + Math.random() * 40,
+                        speed: 0.5 + Math.random() * 1
+                    });
+                }
+            }
+            
+            createTrees() {
+                for (let i = 0; i < 3; i++) {
+                    this.trees.push({
+                        x: Math.random() * canvas.width,
+                        width: 80 + Math.random() * 40,
+                        height: 120 + Math.random() * 80,
+                        speed: 1 + Math.random() * 0.5
+                    });
+                }
+            }
+            
+            addPipe() {
+                const minHeight = 50;
+                const maxHeight = canvas.height - this.groundHeight - this.pipeGap - minHeight;
+                const topHeight = minHeight + Math.random() * maxHeight;
+                
+                this.pipes.push({
+                    x: canvas.width,
+                    topHeight: topHeight,
+                    bottomY: topHeight + this.pipeGap,
+                    passed: false
+                });
+            }
+            
+            jump() {
+                this.bird.velocity = this.bird.jumpForce;
+                this.playFlapSound();
+            }
+            
+            playFlapSound() {
+                // Fallback sound using oscillator
+                try {
+                    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                    const oscillator = audioCtx.createOscillator();
+                    const gainNode = audioCtx.createGain();
+                    
+                    oscillator.type = 'sine';
+                    oscillator.frequency.value = 800;
+                    gainNode.gain.value = 0.1;
+                    
+                    oscillator.connect(gainNode);
+                    gainNode.connect(audioCtx.destination);
+                    
+                    oscillator.start();
+                    oscillator.stop(audioCtx.currentTime + 0.1);
+                } catch (e) {
+                    console.log("Audio error:", e);
+                }
+            }
+            
+            playScoreSound() {
+                try {
+                    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                    const oscillator = audioCtx.createOscillator();
+                    const gainNode = audioCtx.createGain();
+                    
+                    oscillator.type = 'triangle';
+                    oscillator.frequency.value = 1200;
+                    gainNode.gain.value = 0.1;
+                    
+                    oscillator.connect(gainNode);
+                    gainNode.connect(audioCtx.destination);
+                    
+                    oscillator.start();
+                    oscillator.stop(audioCtx.currentTime + 0.2);
+                } catch (e) {
+                    console.log("Audio error:", e);
+                }
+            }
+            
+            playCollisionSound() {
+                try {
+                    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                    const oscillator = audioCtx.createOscillator();
+                    const gainNode = audioCtx.createGain();
+                    
+                    oscillator.type = 'sawtooth';
+                    oscillator.frequency.setValueAtTime(200, audioCtx.currentTime);
+                    oscillator.frequency.exponentialRampToValueAtTime(50, audioCtx.currentTime + 0.5);
+                    gainNode.gain.value = 0.1;
+                    
+                    oscillator.connect(gainNode);
+                    gainNode.connect(audioCtx.destination);
+                    
+                    oscillator.start();
+                    oscillator.stop(audioCtx.currentTime + 0.5);
+                } catch (e) {
+                    console.log("Audio error:", e);
+                }
+            }
+            
+            update() {
+                // Update bird
+                this.bird.velocity += this.bird.gravity;
+                this.bird.y += this.bird.velocity;
+                this.bird.wingAngle += this.bird.wingSpeed;
+                
+                // Check for collisions with ground or ceiling
+                if (this.bird.y - this.bird.radius <= 0 || 
+                    this.bird.y + this.bird.radius >= canvas.height - this.groundHeight) {
+                    return false;
+                }
+                
+                // Check pipe collisions
+                for (const pipe of this.pipes) {
+                    if (this.bird.x + this.bird.radius > pipe.x && 
+                        this.bird.x - this.bird.radius < pipe.x + this.pipeWidth) {
+                        if (this.bird.y - this.bird.radius < pipe.topHeight || 
+                            this.bird.y + this.bird.radius > pipe.bottomY) {
+                            this.playCollisionSound();
+                            return false;
+                        }
+                    }
+                    
+                    // Check if bird passed the pipe
+                    if (!pipe.passed && this.bird.x > pipe.x + this.pipeWidth) {
+                        pipe.passed = true;
+                        score++;
+                        scoreDisplay.textContent = score;
+                        this.playScoreSound();
+                    }
+                }
+                
+                // Update pipes
+                this.pipes = this.pipes.filter(pipe => pipe.x + this.pipeWidth > 0);
+                this.pipes.forEach(pipe => pipe.x -= this.gameSpeed);
+                
+                // Add new pipes
+                const now = Date.now();
+                if (now - this.lastPipeTime > this.pipeFrequency) {
+                    this.addPipe();
+                    this.lastPipeTime = now;
+                }
+                
+                // Update clouds
+                this.clouds.forEach(cloud => {
+                    cloud.x -= cloud.speed;
+                    if (cloud.x + cloud.width < 0) {
+                        cloud.x = canvas.width + Math.random() * 100;
+                        cloud.y = Math.random() * (canvas.height / 3);
+                    }
+                });
+                
+                // Update trees
+                this.trees.forEach(tree => {
+                    tree.x -= tree.speed;
+                    if (tree.x + tree.width < 0) {
+                        tree.x = canvas.width + Math.random() * 200;
+                        tree.width = 80 + Math.random() * 40;
+                        tree.height = 120 + Math.random() * 80;
+                    }
+                });
+                
+                return true;
+            }
+            
+            draw() {
+                // Sky background
+                ctx.fillStyle = '#87CEEB';
+                ctx.fillRect(0, 0, canvas.width, canvas.height - this.groundHeight);
+                
+                // Draw clouds
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+                this.clouds.forEach(cloud => {
+                    ctx.beginPath();
+                    ctx.arc(cloud.x, cloud.y, cloud.height / 2, 0, Math.PI * 2);
+                    ctx.arc(cloud.x + cloud.width / 3, cloud.y - cloud.height / 4, cloud.height / 2.5, 0, Math.PI * 2);
+                    ctx.arc(cloud.x + cloud.width / 1.5, cloud.y, cloud.height / 2, 0, Math.PI * 2);
+                    ctx.arc(cloud.x + cloud.width / 3, cloud.y + cloud.height / 4, cloud.height / 3, 0, Math.PI * 2);
+                    ctx.fill();
+                });
+                
+                // Draw trees
+                this.trees.forEach(tree => {
+                    // Trunk
+                    ctx.fillStyle = '#8B4513';
+                    ctx.fillRect(tree.x, canvas.height - this.groundHeight - tree.height, 15, tree.height);
+                    
+                    // Leaves
+                    ctx.fillStyle = '#2E8B57';
+                    ctx.beginPath();
+                    ctx.moveTo(tree.x - tree.width / 2, canvas.height - this.groundHeight - tree.height / 2);
+                    ctx.lineTo(tree.x + tree.width / 2, canvas.height - this.groundHeight - tree.height / 2);
+                    ctx.lineTo(tree.x, canvas.height - this.groundHeight - tree.height - tree.height / 2);
+                    ctx.closePath();
+                    ctx.fill();
+                    
+                    ctx.beginPath();
+                    ctx.moveTo(tree.x - tree.width / 3, canvas.height - this.groundHeight - tree.height);
+                    ctx.lineTo(tree.x + tree.width / 3, canvas.height - this.groundHeight - tree.height);
+                    ctx.lineTo(tree.x, canvas.height - this.groundHeight - tree.height - tree.height / 3);
+                    ctx.closePath();
+                    ctx.fill();
+                });
+                
+                // Draw pipes
+                this.pipes.forEach(pipe => {
+                    ctx.fillStyle = 'rgba(100, 200, 180, 0.7)';
+                    
+                    // Top pipe
+                    ctx.fillRect(pipe.x, 0, this.pipeWidth, pipe.topHeight);
+                    
+                    // Bottom pipe
+                    ctx.fillRect(pipe.x, pipe.bottomY, this.pipeWidth, canvas.height - pipe.bottomY);
+                    
+                    // Pipe edges
+                    ctx.fillStyle = 'rgba(80, 180, 160, 0.9)';
+                    ctx.fillRect(pipe.x - 5, pipe.topHeight - 15, this.pipeWidth + 10, 15);
+                    ctx.fillRect(pipe.x - 5, pipe.bottomY, this.pipeWidth + 10, 15);
+                });
+                
+                // Draw bird
+                // Body
+                ctx.fillStyle = this.bird.color;
+                ctx.beginPath();
+                ctx.arc(this.bird.x, this.bird.y, this.bird.radius, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Eye
+                ctx.fillStyle = 'white';
+                ctx.beginPath();
+                ctx.arc(this.bird.x + 8, this.bird.y - 5, 4, 0, Math.PI * 2);
+                ctx.fill();
+                
+                ctx.fillStyle = 'black';
+                ctx.beginPath();
+                ctx.arc(this.bird.x + 8, this.bird.y - 5, 2, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Beak
+                ctx.fillStyle = '#FFD700';
+                ctx.beginPath();
+                ctx.moveTo(this.bird.x + this.bird.radius, this.bird.y);
+                ctx.lineTo(this.bird.x + this.bird.radius + 12, this.bird.y - 4);
+                ctx.lineTo(this.bird.x + this.bird.radius + 12, this.bird.y + 4);
+                ctx.closePath();
+                ctx.fill();
+                
+                // Wings
+                const wingYOffset = Math.sin(this.bird.wingAngle) * 10;
+                
+                ctx.fillStyle = this.bird.wingColor;
+                ctx.beginPath();
+                ctx.moveTo(this.bird.x - 8, this.bird.y);
+                ctx.quadraticCurveTo(this.bird.x - 18, this.bird.y - 12 + wingYOffset, this.bird.x, this.bird.y + wingYOffset);
+                ctx.quadraticCurveTo(this.bird.x - 18, this.bird.y + 12 + wingYOffset, this.bird.x - 8, this.bird.y);
+                ctx.fill();
+                
+                // Draw ground
+                ctx.fillStyle = '#5C9E5C';
+                ctx.fillRect(0, canvas.height - this.groundHeight, canvas.width, this.groundHeight);
+                
+                // Grass details
+                ctx.fillStyle = '#4A8D4A';
+                for (let i = 0; i < 50; i++) {
+                    const x = Math.random() * canvas.width;
+                    const height = 5 + Math.random() * 10;
+                    ctx.beginPath();
+                    ctx.moveTo(x, canvas.height - this.groundHeight);
+                    ctx.lineTo(x - 2, canvas.height - this.groundHeight - height);
+                    ctx.lineTo(x + 2, canvas.height - this.groundHeight - height);
+                    ctx.closePath();
+                    ctx.fill();
+                }
+            }
+            
+            setDifficulty(difficulty) {
+                switch(difficulty) {
+                    case DIFFICULTIES.EASY:
+                        this.gameSpeed = 2;
+                        this.pipeGap = 250;
+                        this.pipeFrequency = 1800;
+                        this.bird.jumpForce = -9;
+                        this.bird.gravity = 0.4;
+                        break;
+                    case DIFFICULTIES.MEDIUM:
+                        this.gameSpeed = 3;
+                        this.pipeGap = 200;
+                        this.pipeFrequency = 1500;
+                        this.bird.jumpForce = -10;
+                        this.bird.gravity = 0.5;
+                        break;
+                    case DIFFICULTIES.HARD:
+                        this.gameSpeed = 4;
+                        this.pipeGap = 150;
+                        this.pipeFrequency = 1200;
+                        this.bird.jumpForce = -11;
+                        this.bird.gravity = 0.6;
+                        break;
+                }
+            }
+            
+            reset() {
+                this.bird.y = canvas.height / 2;
+                this.bird.velocity = 0;
+                this.pipes = [];
+                this.clouds = [];
+                this.trees = [];
+                this.createClouds();
+                this.createTrees();
+                this.lastPipeTime = Date.now();
+            }
+        }
+        
+        class NightGame {
+            constructor() {
+                this.ship = {
+                    x: 100,
+                    y: canvas.height / 2,
+                    width: 30,
+                    height: 20,
+                    velocity: 0,
+                    gravity: 0.3,
+                    thrustForce: -12,
+                    color: '#3b82f6',
+                    engineOn: false,
+                    engineTimer: 0
+                };
+                
+                this.asteroids = [];
+                this.stars = [];
+                this.planets = [];
+                this.groundHeight = 40;
+                this.asteroidWidth = 80;
+                this.asteroidGap = 200;
+                this.asteroidFrequency = 1500;
+                this.lastAsteroidTime = 0;
+                this.gameSpeed = 3;
+                
+                // Create initial stars and planets
+                this.createStars();
+                this.createPlanets();
+            }
+            
+            createStars() {
+                for (let i = 0; i < 100; i++) {
+                    this.stars.push({
+                        x: Math.random() * canvas.width,
+                        y: Math.random() * (canvas.height - this.groundHeight),
+                        size: Math.random() * 3,
+                        brightness: 0.5 + Math.random() * 0.5
+                    });
+                }
+            }
+            
+            createPlanets() {
+                for (let i = 0; i < 2; i++) {
+                    this.planets.push({
+                        x: Math.random() * canvas.width,
+                        y: Math.random() * (canvas.height / 3),
+                        radius: 20 + Math.random() * 40,
+                        color: `hsl(${Math.random() * 360}, 70%, 50%)`,
+                        speed: 0.1 + Math.random() * 0.3
+                    });
+                }
+            }
+            
+            addAsteroid() {
+                const minHeight = 60;
+                const maxHeight = canvas.height - this.groundHeight - this.asteroidGap - minHeight;
+                const topHeight = minHeight + Math.random() * maxHeight;
+                
+                this.asteroids.push({
+                    x: canvas.width,
+                    topHeight: topHeight,
+                    bottomY: topHeight + this.asteroidGap,
+                    passed: false,
+                    color: `hsl(${30 + Math.random() * 30}, 70%, ${40 + Math.random() * 20}%)`
+                });
+            }
+            
+            thrust() {
+                this.ship.velocity = this.ship.thrustForce;
+                this.ship.engineOn = true;
+                this.ship.engineTimer = 5;
+                this.playThrustSound();
+            }
+            
+            playThrustSound() {
+                try {
+                    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                    const oscillator = audioCtx.createOscillator();
+                    const gainNode = audioCtx.createGain();
+                    
+                    oscillator.type = 'square';
+                    oscillator.frequency.value = 300;
+                    gainNode.gain.value = 0.1;
+                    
+                    oscillator.connect(gainNode);
+                    gainNode.connect(audioCtx.destination);
+                    
+                    oscillator.start();
+                    oscillator.stop(audioCtx.currentTime + 0.2);
+                } catch (e) {
+                    console.log("Audio error:", e);
+                }
+            }
+            
+            playScoreSound() {
+                try {
+                    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                    const oscillator = audioCtx.createOscillator();
+                    const gainNode = audioCtx.createGain();
+                    
+                    oscillator.type = 'sine';
+                    oscillator.frequency.value = 1500;
+                    gainNode.gain.value = 0.1;
+                    
+                    oscillator.connect(gainNode);
+                    gainNode.connect(audioCtx.destination);
+                    
+                    oscillator.start();
+                    oscillator.stop(audioCtx.currentTime + 0.1);
+                } catch (e) {
+                    console.log("Audio error:", e);
+                }
+            }
+            
+            playCollisionSound() {
+                try {
+                    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                    const oscillator = audioCtx.createOscillator();
+                    const gainNode = audioCtx.createGain();
+                    
+                    oscillator.type = 'sawtooth';
+                    oscillator.frequency.setValueAtTime(150, audioCtx.currentTime);
+                    oscillator.frequency.exponentialRampToValueAtTime(40, audioCtx.currentTime + 0.7);
+                    gainNode.gain.value = 0.1;
+                    
+                    oscillator.connect(gainNode);
+                    gainNode.connect(audioCtx.destination);
+                    
+                    oscillator.start();
+                    oscillator.stop(audioCtx.currentTime + 0.7);
+                } catch (e) {
+                    console.log("Audio error:", e);
+                }
+            }
+            
+            update() {
+                // Update ship
+                this.ship.velocity += this.ship.gravity;
+                this.ship.y += this.ship.velocity;
+                
+                if (this.ship.engineOn) {
+                    this.ship.engineTimer--;
+                    if (this.ship.engineTimer <= 0) {
+                        this.ship.engineOn = false;
+                    }
+                }
+                
+                // Check for collisions with ground or ceiling
+                if (this.ship.y - this.ship.height / 2 <= 0 || 
+                    this.ship.y + this.ship.height / 2 >= canvas.height - this.groundHeight) {
+                    return false;
+                }
+                
+                // Check asteroid collisions
+                for (const asteroid of this.asteroids) {
+                    if (this.ship.x + this.ship.width / 2 > asteroid.x && 
+                        this.ship.x - this.ship.width / 2 < asteroid.x + this.asteroidWidth) {
+                        if (this.ship.y - this.ship.height / 2 < asteroid.topHeight || 
+                            this.ship.y + this.ship.height / 2 > asteroid.bottomY) {
+                            this.playCollisionSound();
+                            return false;
+                        }
+                    }
+                    
+                    // Check if ship passed the asteroid
+                    if (!asteroid.passed && this.ship.x > asteroid.x + this.asteroidWidth) {
+                        asteroid.passed = true;
+                        score++;
+                        scoreDisplay.textContent = score;
+                        this.playScoreSound();
+                    }
+                }
+                
+                // Update asteroids
+                this.asteroids = this.asteroids.filter(asteroid => asteroid.x + this.asteroidWidth > 0);
+                this.asteroids.forEach(asteroid => asteroid.x -= this.gameSpeed);
+                
+                // Add new asteroids
+                const now = Date.now();
+                if (now - this.lastAsteroidTime > this.asteroidFrequency) {
+                    this.addAsteroid();
+                    this.lastAsteroidTime = now;
+                }
+                
+                // Update stars
+                this.stars.forEach(star => {
+                    star.x -= star.speed || 0.2;
+                    if (star.x < 0) {
+                        star.x = canvas.width;
+                        star.y = Math.random() * (canvas.height - this.groundHeight);
+                    }
+                });
+                
+                // Update planets
+                this.planets.forEach(planet => {
+                    planet.x -= planet.speed;
+                    if (planet.x + planet.radius < 0) {
+                        planet.x = canvas.width + planet.radius;
+                        planet.y = Math.random() * (canvas.height / 3);
+                        planet.radius = 20 + Math.random() * 40;
+                        planet.color = `hsl(${Math.random() * 360}, 70%, 50%)`;
+                    }
+                });
+                
+                return true;
+            }
+            
+            draw() {
+                // Space background
+                ctx.fillStyle = '#0f172a';
+                ctx.fillRect(0, 0, canvas.width, canvas.height - this.groundHeight);
+                
+                // Draw stars
+                this.stars.forEach(star => {
+                    ctx.fillStyle = `rgba(255, 255, 255, ${star.brightness})`;
+                    ctx.beginPath();
+                    ctx.arc(star.x, star.y, star.size, 0, Math.PI * 2);
+                    ctx.fill();
+                });
+                
+                // Draw planets
+                this.planets.forEach(planet => {
+                    // Glow effect
+                    const gradient = ctx.createRadialGradient(
+                        planet.x, planet.y, planet.radius * 0.7,
+                        planet.x, planet.y, planet.radius
+                    );
+                    gradient.addColorStop(0, planet.color);
+                    gradient.addColorStop(1, 'transparent');
+                    
+                    ctx.fillStyle = gradient;
+                    ctx.beginPath();
+                    ctx.arc(planet.x, planet.y, planet.radius, 0, Math.PI * 2);
+                    ctx.fill();
+                    
+                    // Planet
+                    ctx.fillStyle = planet.color;
+                    ctx.beginPath();
+                    ctx.arc(planet.x, planet.y, planet.radius * 0.7, 0, Math.PI * 2);
+                    ctx.fill();
+                    
+                    // Random craters
+                    ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+                    for (let i = 0; i < 5; i++) {
+                        const angle = Math.random() * Math.PI * 2;
+                        const distance = Math.random() * planet.radius * 0.6;
+                        const craterX = planet.x + Math.cos(angle) * distance;
+                        const craterY = planet.y + Math.sin(angle) * distance;
+                        const craterSize = planet.radius * 0.1 + Math.random() * planet.radius * 0.1;
+                        
+                        ctx.beginPath();
+                        ctx.arc(craterX, craterY, craterSize, 0, Math.PI * 2);
+                        ctx.fill();
+                    }
+                });
+                
+                // Draw asteroids
+                this.asteroids.forEach(asteroid => {
+                    ctx.fillStyle = asteroid.color;
+                    
+                    // Top asteroid
+                    ctx.beginPath();
+                    ctx.moveTo(asteroid.x, 0);
+                    ctx.lineTo(asteroid.x + this.asteroidWidth, 0);
+                    ctx.lineTo(asteroid.x + this.asteroidWidth, asteroid.topHeight);
+                    
+                    // Create jagged bottom edge
+                    const segments = 5;
+                    const segmentWidth = this.asteroidWidth / segments;
+                    for (let i = 0; i <= segments; i++) {
+                        const x = asteroid.x + i * segmentWidth;
+                        const y = asteroid.topHeight - (i % 2 === 0 ? 10 : 20);
+                        ctx.lineTo(x, y);
+                    }
+                    
+                    ctx.closePath();
+                    ctx.fill();
+                    
+                    // Bottom asteroid
+                    ctx.beginPath();
+                    ctx.moveTo(asteroid.x, canvas.height);
+                    ctx.lineTo(asteroid.x + this.asteroidWidth, canvas.height);
+                    ctx.lineTo(asteroid.x + this.asteroidWidth, asteroid.bottomY);
+                    
+                    // Create jagged top edge
+                    for (let i = 0; i <= segments; i++) {
+                        const x = asteroid.x + i * segmentWidth;
+                        const y = asteroid.bottomY + (i % 2 === 0 ? 10 : 20);
+                        ctx.lineTo(x, y);
+                    }
+                    
+                    ctx.closePath();
+                    ctx.fill();
+                    
+                    // Asteroid edges
+                    ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+                    ctx.fillRect(asteroid.x - 5, asteroid.topHeight - 15, this.asteroidWidth + 10, 15);
+                    ctx.fillRect(asteroid.x - 5, asteroid.bottomY, this.asteroidWidth + 10, 15);
+                });
+                
+                // Draw ship
+                ctx.fillStyle = this.ship.color;
+                ctx.beginPath();
+                ctx.moveTo(this.ship.x - this.ship.width / 2, this.ship.y - this.ship.height / 2);
+                ctx.lineTo(this.ship.x + this.ship.width / 2, this.ship.y);
+                ctx.lineTo(this.ship.x - this.ship.width / 2, this.ship.y + this.ship.height / 2);
+                ctx.closePath();
+                ctx.fill();
+                
+                // Ship details
+                ctx.fillStyle = '#93c5fd';
+                ctx.fillRect(this.ship.x - this.ship.width / 2 + 5, this.ship.y - 3, 10, 6);
+                
+                // Engine glow
+                if (this.ship.engineOn) {
+                    const glow = document.createElement('div');
+                    glow.className = 'engine-glow';
+                    glow.style.left = `${this.ship.x - this.ship.width / 2 - 30}px`;
+                    glow.style.top = `${this.ship.y - 30}px`;
+                    document.body.appendChild(glow);
+                    
+                    setTimeout(() => {
+                        document.body.removeChild(glow);
+                    }, 50);
+                }
+                
+                // Draw ground (moon surface)
+                ctx.fillStyle = '#64748b';
+                ctx.fillRect(0, canvas.height - this.groundHeight, canvas.width, this.groundHeight);
+                
+                // Moon craters
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
+                for (let i = 0; i < 20; i++) {
+                    const x = Math.random() * canvas.width;
+                    const y = canvas.height - this.groundHeight + Math.random() * 20;
+                    const radius = 5 + Math.random() * 15;
+                    
+                    ctx.beginPath();
+                    ctx.arc(x, y, radius, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            }
+            
+            setDifficulty(difficulty) {
+                switch(difficulty) {
+                    case DIFFICULTIES.EASY:
+                        this.gameSpeed = 2;
+                        this.asteroidGap = 250;
+                        this.asteroidFrequency = 1800;
+                        this.ship.thrustForce = -11;
+                        this.ship.gravity = 0.25;
+                        break;
+                    case DIFFICULTIES.MEDIUM:
+                        this.gameSpeed = 3;
+                        this.asteroidGap = 200;
+                        this.asteroidFrequency = 1500;
+                        this.ship.thrustForce = -12;
+                        this.ship.gravity = 0.3;
+                        break;
+                    case DIFFICULTIES.HARD:
+                        this.gameSpeed = 4;
+                        this.asteroidGap = 150;
+                        this.asteroidFrequency = 1200;
+                        this.ship.thrustForce = -13;
+                        this.ship.gravity = 0.35;
+                        break;
+                }
+            }
+            
+            reset() {
+                this.ship.y = canvas.height / 2;
+                this.ship.velocity = 0;
+                this.asteroids = [];
+                this.stars = [];
+                this.planets = [];
+                this.createStars();
+                this.createPlanets();
+                this.lastAsteroidTime = Date.now();
+            }
+        }
+        
+        // Game Instances
+        let dayGame = new DayGame();
+        let nightGame = new NightGame();
+        let currentGame = dayGame;
+        
+        // Game Functions
+        function startGame() {
+            score = 0;
+            timeSurvived = 0;
+            scoreDisplay.textContent = '0';
+            timerDisplay.textContent = '0s';
+            
+            if (currentMode === GAME_MODES.DAY) {
+                currentGame = dayGame;
+                difficultyTitle.textContent = 'FLAPPY BIRD';
+                gameOverTitle.textContent = 'GAME OVER';
+            } else {
+                currentGame = nightGame;
+                difficultyTitle.textContent = 'ASTRO THRUST';
+                gameOverTitle.textContent = 'MISSION FAILED';
+                difficultyTitle.classList.add('night-mode-text');
+                gameOverTitle.classList.add('night-mode-text');
+            }
+            
+            currentGame.setDifficulty(currentDifficulty);
+            currentGame.reset();
+            
+            modeScreen.style.display = 'none';
+            difficultyScreen.style.display = 'none';
+            gameOverScreen.style.display = 'none';
+            
+            gameRunning = true;
+            gameStartTime = Date.now();
+            
+            // Start timer
+            clearInterval(timerInterval);
+            timerInterval = setInterval(() => {
+                timeSurvived = Math.floor((Date.now() - gameStartTime) / 1000);
+                timerDisplay.textContent = `${timeSurvived}s`;
+            }, 1000);
+            
+            // Start game loop
+            gameLoop();
+        }
+        
+        function gameLoop() {
+            if (!gameRunning) return;
+            
+            // Update game state
+            const stillAlive = currentGame.update();
+            
+            if (!stillAlive) {
+                gameOver();
+                return;
+            }
+            
+            // Draw everything
+            currentGame.draw();
+            
+            // Continue loop
+            requestAnimationFrame(gameLoop);
+        }
+        
+        function gameOver() {
+            gameRunning = false;
+            clearInterval(timerInterval);
+            
+            // Update final score display
+            finalScoreDisplay.textContent = `Score: ${score}`;
+            timeSurvivedDisplay.textContent = `Time: ${timeSurvived}s`;
+            
+            // Check for new high score
+            const currentLeaderboard = leaderboard[currentMode];
+            const isNewHighScore = currentLeaderboard.length < 5 || score > currentLeaderboard[currentLeaderboard.length - 1].score;
+            
+            // Check achievements
+            checkAchievements();
+            
+            // Show game over screen
+            gameOverScreen.style.display = 'flex';
+            
+            // Show name input if new high score
+            if (isNewHighScore) {
+                setTimeout(() => {
+                    nameInputModal.style.display = 'block';
+                    playerNameInput.focus();
+                }, 1000);
+            }
+        }
+        
+        function checkAchievements() {
+            let earnedAchievements = [];
+            let newAchievements = false;
+            
+            ACHIEVEMENTS.forEach(ach => {
+                if (!achievements[ach.id] && ach.condition({ score, timeSurvived })) {
+                    achievements[ach.id] = true;
+                    earnedAchievements.push(ach);
+                    newAchievements = true;
+                } else if (achievements[ach.id]) {
+                    earnedAchievements.push(ach);
+                }
+            });
+            
+            // Update localStorage if new achievements unlocked
+            if (newAchievements) {
+                localStorage.setItem('flappySpaceAchievements', JSON.stringify(achievements));
+            }
+            
+            // Display earned achievements
+            achievementsEarned.innerHTML = '';
+            if (earnedAchievements.length > 0) {
+                const achievementsTitle = document.createElement('h3');
+                achievementsTitle.textContent = 'Achievements:';
+                achievementsTitle.className = 'mb-2';
+                achievementsEarned.appendChild(achievementsTitle);
+                
+                earnedAchievements.forEach(ach => {
+                    const achievementDiv = document.createElement('div');
+                    achievementDiv.className = `achievement ${achievements[ach.id] ? 'unlocked' : ''}`;
+                    
+                    const iconDiv = document.createElement('div');
+                    iconDiv.className = 'achievement-icon';
+                    iconDiv.textContent = achievements[ach.id] ? '✓' : '?';
+                    
+                    const textDiv = document.createElement('div');
+                    textDiv.innerHTML = `<strong>${ach.name}</strong><br><small>${ach.description}</small>`;
+                    
+                    achievementDiv.appendChild(iconDiv);
+                    achievementDiv.appendChild(textDiv);
+                    achievementsEarned.appendChild(achievementDiv);
+                });
+            }
+        }
+        
+        function submitScore() {
+            const playerName = playerNameInput.value.trim() || 'Anonymous';
+            const currentLeaderboard = leaderboard[currentMode];
+            
+            // Add new score
+            currentLeaderboard.push({
+                name: playerName,
+                score: score,
+                time: timeSurvived,
+                date: new Date().toISOString()
+            });
+            
+            // Sort leaderboard (highest score first)
+            currentLeaderboard.sort((a, b) => b.score - a.score);
+            
+            // Keep only top 5 scores
+            if (currentLeaderboard.length > 5) {
+                leaderboard[currentMode] = currentLeaderboard.slice(0, 5);
+            }
+            
+            // Save to localStorage
+            localStorage.setItem('flappySpaceLeaderboard', JSON.stringify(leaderboard));
+            
+            // Close modal
+            nameInputModal.style.display = 'none';
+            playerNameInput.value = '';
+        }
+        
+        function showLeaderboard(mode = currentMode) {
+            const leaderboardEntries = mode === GAME_MODES.DAY ? dayLeaderboardEntries : nightLeaderboardEntries;
+            const entries = leaderboard[mode];
+            
+            leaderboardEntries.innerHTML = '';
+            
+            if (entries.length === 0) {
+                leaderboardEntries.innerHTML = '<p>No scores yet!</p>';
+                return;
+            }
+            
+            entries.forEach((entry, index) => {
+                const entryDiv = document.createElement('div');
+                entryDiv.className = 'leaderboard-entry';
+                
+                const rankDiv = document.createElement('div');
+                rankDiv.textContent = `${index + 1}. ${entry.name}`;
+                
+                const scoreDiv = document.createElement('div');
+                scoreDiv.textContent = `${entry.score} (${entry.time}s)`;
+                
+                entryDiv.appendChild(rankDiv);
+                entryDiv.appendChild(scoreDiv);
+                leaderboardEntries.appendChild(entryDiv);
+            });
+            
+            // Show the correct leaderboard tab
+            if (mode === GAME_MODES.DAY) {
+                dayLeaderboard.style.display = 'block';
+                nightLeaderboard.style.display = 'none';
+            } else {
+                dayLeaderboard.style.display = 'none';
+                nightLeaderboard.style.display = 'block';
+            }
+            
+            leaderboardModal.style.display = 'block';
+        }
+        
+        // Event Listeners
+        dayModeBtn.addEventListener('click', () => {
+            currentMode = GAME_MODES.DAY;
+            difficultyTitle.classList.remove('night-mode-text');
+            difficultyScreen.style.display = 'flex';
+            modeScreen.style.display = 'none';
+        });
+        
+        nightModeBtn.addEventListener('click', () => {
+            currentMode = GAME_MODES.NIGHT;
+            difficultyTitle.classList.add('night-mode-text');
+            difficultyScreen.style.display = 'flex';
+            modeScreen.style.display = 'none';
+        });
+        
+        backToModeBtn.addEventListener('click', () => {
+            difficultyScreen.style.display = 'none';
+            modeScreen.style.display = 'flex';
+        });
+        
+        document.querySelectorAll('[data-difficulty]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                currentDifficulty = btn.dataset.difficulty;
+                startGame();
+            });
+        });
+        
+        restartBtn.addEventListener('click', () => {
+            startGame();
+        });
+        
+        changeDifficultyBtn.addEventListener('click', () => {
+            gameOverScreen.style.display = 'none';
+            difficultyScreen.style.display = 'flex';
+        });
+        
+        changeModeBtn.addEventListener('click', () => {
+            gameOverScreen.style.display = 'none';
+            modeScreen.style.display = 'flex';
+        });
+        
+        submitScoreBtn.addEventListener('click', () => {
+            submitScore();
+        });
+        
+        playerNameInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                submitScore();
+            }
+        });
+        
+        leaderboardBtn.addEventListener('click', () => {
+            showLeaderboard();
+        });
+        
+        closeLeaderboardBtn.addEventListener('click', () => {
+            leaderboardModal.style.display = 'none';
+        });
+        
+        leaderboardTabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                showLeaderboard(tab.dataset.mode);
+            });
+        });
+        
+        // Game Controls
+        function jump() {
+            if (!gameRunning) return;
+            currentGame.jump ? currentGame.jump() : currentGame.thrust();
+        }
+        
+        document.addEventListener('keydown', (e) => {
+            if (e.code === 'Space') {
+                e.preventDefault();
+                jump();
+            }
+        });
+        
+        canvas.addEventListener('click', jump);
+        canvas.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            jump();
+        });
+        
+        // PWA Service Worker Registration
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('sw.js').then(registration => {
+                    console.log('ServiceWorker registration successful');
+                }).catch(err => {
+                    console.log('ServiceWorker registration failed: ', err);
+                });
+            });
+        }
+        
+        // Manifest for PWA
+        const manifest = {
+            "name": "Flappy Space",
+            "short_name": "FlappySpace",
+            "description": "Play Flappy Bird (Day Mode) or Astro Thrust (Night Mode) in one game!",
+            "start_url": ".",
+            "display": "standalone",
+            "theme_color": "#0f172a",
+            "background_color": "#0f172a",
+            "icons": [
+                {
+                    "src": "icon-192.png",
+                    "sizes": "192x192",
+                    "type": "image/png"
+                },
+                {
+                    "src": "icon-512.png",
+                    "sizes": "512x512",
+                    "type": "image/png"
+                }
+            ]
+        };
+        
+        // Create a blob URL for the manifest
+        const manifestBlob = new Blob([JSON.stringify(manifest)], {type: 'application/json'});
+        const manifestURL = URL.createObjectURL(manifestBlob);
+        
+        // Create a link element for the manifest
+        const manifestLink = document.createElement('link');
+        manifestLink.rel = 'manifest';
+        manifestLink.href = manifestURL;
+        document.head.appendChild(manifestLink);
+        
+        // Service Worker content (inlined)
+        const serviceWorkerContent = `
+            const CACHE_NAME = 'flappy-space-v1';
+            const ASSETS = [
+                '/',
+                '/index.html',
+                '/styles.css',
+                '/script.js',
+                '/icon-192.png',
+                '/icon-512.png'
+            ];
+            
+            self.addEventListener('install', (event) => {
+                event.waitUntil(
+                    caches.open(CACHE_NAME)
+                        .then((cache) => {
+                            return cache.addAll(ASSETS);
+                        })
+                );
+            });
+            
+            self.addEventListener('fetch', (event) => {
+                event.respondWith(
+                    caches.match(event.request)
+                        .then((response) => {
+                            return response || fetch(event.request);
+                        })
+                );
+            });
+        `;
+        
+        // Create a blob URL for the service worker
+        const swBlob = new Blob([serviceWorkerContent], {type: 'application/javascript'});
+        const swURL = URL.createObjectURL(swBlob);
+        
+        // Create a script element to "register" the service worker
+        const swScript = document.createElement('script');
+        swScript.textContent = `
+            if ('serviceWorker' in navigator) {
+                navigator.serviceWorker.register('${swURL}').then(registration => {
+                    console.log('ServiceWorker registration successful');
+                }).catch(err => {
+                    console.log('ServiceWorker registration failed: ', err);
+                });
+            }
+        `;
+        document.body.appendChild(swScript);
+    </script>
+</body>
+</html>
